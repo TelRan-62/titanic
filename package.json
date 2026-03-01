@@ -1,0 +1,13 @@
+{
+  "name": "titanic-stats",
+  "version": "0.0.1",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "stats1": "node index.js"
+  },
+  "keywords": [],
+  "author": "Edward",
+  "license": "ISC",
+  "description": "Titanic stats"
+}

@@ -7,40 +7,19 @@ export class Titanic {
         this.separator = separator;
     }
 
-    totalFares() {
-        const reader = readline.createInterface({
-            input: fs.createReadStream('./train.csv', 'utf8'),
-            crlfDelay: Infinity
-        })
+    async totalFares() {
         let res = 0;
-        let isFirstLine = true
-        reader.on('line', data => {
-            if (isFirstLine) {
-                isFirstLine = false;
-                return;
+        await this._processLines(cells => {
+            if (cells[9]) {
+                res += +cells[9];
             }
-            const cells = data.split(this.separator)
-            res += cells[9] && +cells[9];
         })
-
-        reader.on('close', () => {
-            console.log(`Total fares:`, res.toFixed(2));
-        })
+        return res
     }
 
-    avgFaresByClasses() {
-        const reader = readline.createInterface({
-            input: fs.createReadStream('./train.csv', 'utf8'),
-            crlfDelay: Infinity
-        })
+    async avgFaresByClasses() {
         let res = {};
-        let isFirstLine = true
-        reader.on('line', data => {
-            if (isFirstLine) {
-                isFirstLine = false;
-                return;
-            }
-            const cells = data.split(this.separator)
+        await this._processLines(cells => {
             if (cells[9]) {
                 const info = {pClass: cells[2], fare: +cells[9]}
                 const key = info.pClass;
@@ -50,79 +29,42 @@ export class Titanic {
                 res[key].push(info.fare);
             }
         })
-
-        reader.on('close', () => {
-            for (const key in res) {
-                res[key] = +(res[key].reduce((a, b) => a + b) / res[key].length).toFixed(2);
-            }
-            console.log(`Average fares by classes:`, res);
-        })
+        for (const key in res) {
+            res[key] = +(res[key].reduce((a, b) => a + b) / res[key].length).toFixed(2);
+        }
+        return res;
     }
 
-    totalSurvived() {
-        const reader = readline.createInterface({
-            input: fs.createReadStream('./train.csv', 'utf8'),
-            crlfDelay: Infinity
-        })
+    async totalSurvived() {
         let res = {};
-        let isFirstLine = true
-        reader.on('line', data => {
-            if (isFirstLine) {
-                isFirstLine = false;
-                return;
+        await this._processLines(cells => {
+                const key = +cells[1] ? 'Survived' : 'Non survived';
+                if (!res[key]) {
+                    res[key] = 0;
+                }
+                res[key]++;
             }
-            const cells = data.split(this.separator)
-            const key = +cells[1] ? 'Survived' : 'Non survived';
-            if (!res[key]) {
-                res[key] = 0;
-            }
-            res[key]++;
-        })
-
-        reader.on('close', () => {
-            console.log(res);
-        })
+        )
+        return res;
     }
 
-    totalSurvivedByGender() {
-        const reader = readline.createInterface({
-            input: fs.createReadStream('./train.csv', 'utf8'),
-            crlfDelay: Infinity
-        })
+    async totalSurvivedByGender() {
         let res = {};
-        let isFirstLine = true
-        reader.on('line', data => {
-            if (isFirstLine) {
-                isFirstLine = false;
-                return;
+        await this._processLines(cells => {
+                const key = this._survivedGender(cells[4], cells[1]);
+                if (!res[key]) {
+                    res[key] = 0;
+                }
+                res[key]++;
             }
-            const cells = data.split(this.separator)
-            const key = this._survivedGender(cells[4], cells[1]);
-            if (!res[key]) {
-                res[key] = 0;
-            }
-            res[key]++;
-        })
-
-        reader.on('close', () => {
-            console.log(res);
-        })
+        )
+        return res;
     }
 
-    totalSurvivedChildren(){
-        const reader = readline.createInterface({
-            input: fs.createReadStream('./train.csv', 'utf8'),
-            crlfDelay: Infinity
-        })
+    async totalSurvivedChildren() {
         let res = {};
-        let isFirstLine = true
-        reader.on('line', data => {
-            if (isFirstLine) {
-                isFirstLine = false;
-                return;
-            }
-            const cells = data.split(this.separator)
-            if(cells[5] && cells[5] < 18) {
+        await this._processLines(cells => {
+            if (cells[5] && cells[5] < 18) {
                 const key = +cells[1] ? 'Children survived' : 'Children non survived';
                 if (!res[key]) {
                     res[key] = 0;
@@ -130,22 +72,40 @@ export class Titanic {
                 res[key]++;
             }
         })
-
-        reader.on('close', () => {
-            console.log(res);
-        })
+        return res;
     }
 
-    showStats(){
-        this.totalFares();
-        this.avgFaresByClasses();
-        this.totalSurvived();
-        this.totalSurvivedByGender();
-        this.totalSurvivedChildren();
+    async showStats() {
+        let res = await this.totalFares();
+        console.log("Total fare: " + res.toFixed(2));
+        res = await this.avgFaresByClasses();
+        console.log("Average fares by classes: " + JSON.stringify(res));
+        res = await this.totalSurvived();
+        console.log(res)
+        res = await this.totalSurvivedByGender();
+        console.log(res)
+        res = await this.totalSurvivedChildren();
+        console.log(res)
     }
 
     _survivedGender(gender, survived) {
         survived = +survived ? 'survived' : 'non survived';
         return gender + " " + survived;
+    }
+
+    async _processLines(process) {
+        const reader = readline.createInterface({
+            input: fs.createReadStream('./train.csv', 'utf8'),
+            crlfDelay: Infinity
+        })
+        let isFirstLine = true
+        for await (const line of reader) {
+            if (isFirstLine) {
+                isFirstLine = false;
+                continue;
+            }
+            const cells = line.split(this.separator)
+            process(cells);
+        }
     }
 }
